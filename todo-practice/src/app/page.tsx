@@ -40,7 +40,7 @@ export default function Home() {
       {/* Bottom button */}
       <div className="px-8 pb-20 mx-auto">
         <button
-          onClick={() => router.push("/auth/register")}
+          onClick={() => router.push("/auth/login")}
           className="w-[350px] bg-[#50C2C9] text-white rounded-lg py-4 text-[18px] font-bold shadow-sm mb-6"
         >
           Get Started
