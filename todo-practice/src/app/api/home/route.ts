@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     const newNote = await prisma.note.create({
       data: {
         note,
-        isDone: isDone ?? true,
+        isDone,
         userId,
       },
     });

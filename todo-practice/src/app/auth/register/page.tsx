@@ -34,10 +34,12 @@ export default function Register() {
     });
 
     const data = await res.json();
+    console.log("API Response:", data); // Add this to debug
 
     if (res.ok) {
-      setUsernameState("username");
-      setUserIdState(data.user.id);
+      setUsernameState(username);
+      // Change from data.user.id to data.user.userId
+      setUserIdState(data.user.userId); // ✅ Fix: use userId instead of id
       router.push("/home");
     } else {
       alert(data.error || "Something went wrong.");

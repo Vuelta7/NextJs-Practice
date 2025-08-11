@@ -6,33 +6,143 @@ import circle from "@/assets/circle diff color.png";
 import profile from "@/assets/profile.png";
 import plus from "@/assets/plus.png";
 import LogOutIcon from "../components/logOut";
+import Time from "../components/time";
+import { useUserStore } from "@/lib/useUserStore";
+import { useNoteStore } from "@/lib/useNoteStore";
+
+type Note = {
+  noteId: number;
+  note: string;
+  isDone: boolean;
+  userId: number;
+};
 
 export default function Dashboard() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const [time, setTime] = useState(new Date());
+
+  const username = useUserStore((state) => state.username);
+  const userId = useUserStore((state) => state.userId);
+  const { setUserId, setUsername } = useUserStore();
+
+  // Debug user data
+  console.log("Current user data:", { username, userId });
+
+  const { notes, setNotes, getNotesByUserId, addNote, toggleNoteDone } =
+    useNoteStore();
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newTask, setNewTask] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Wait until client is mounted before rendering UI
+  // Fetch notes on component mount
   useEffect(() => {
-    setMounted(true);
-    const interval = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, []);
+    const fetchNotes = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-  if (!mounted) {
-    // Render nothing (or a loading placeholder) during SSR to avoid mismatch
-    return <div className="min-h-screen bg-gray-100"></div>;
-  }
+        const response = await fetch("/api/home");
 
-  const seconds = time.getSeconds();
-  const minutes = time.getMinutes();
-  const hours = time.getHours();
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-  const secondDeg = seconds * 6;
-  const minuteDeg = minutes * 6 + seconds * 0.1;
-  const hourDeg = ((hours % 12) / 12) * 360 + minutes * 0.5;
+        const data = await response.json();
+
+        // Assuming the API returns an array of notes or an object with notes property
+        const notesData = Array.isArray(data) ? data : data.notes;
+
+        if (notesData) {
+          setNotes(notesData);
+        }
+      } catch (err) {
+        console.error("Failed to fetch notes:", err);
+        setError(err instanceof Error ? err.message : "Failed to fetch notes");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchNotes();
+  }, [setNotes]);
+
+  // Get current user's notes
+  const userNotes = userId ? getNotesByUserId(userId) : [];
+
+  // Handle adding new task
+  const handleAddTask = async () => {
+    console.log("handleAddTask called");
+    console.log("newTask:", newTask);
+    console.log("userId:", userId);
+
+    if (!newTask.trim()) {
+      console.log("No task text entered");
+      return;
+    }
+
+    if (!userId) {
+      console.log("No userId found");
+      setError("User not logged in");
+      return;
+    }
+
+    try {
+      setIsAddingTask(true);
+      setError(null);
+      console.log("Starting API request...");
+
+      const requestBody = {
+        note: newTask.trim(),
+        isDone: false,
+        userId: userId,
+      };
+
+      console.log("Request body:", requestBody);
+
+      const response = await fetch("/api/home", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log("Response status:", response.status);
+      console.log("Response ok:", response.ok);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("API Error:", errorData);
+        throw new Error(
+          errorData.error || `HTTP error! status: ${response.status}`
+        );
+      }
+
+      const createdNote = await response.json();
+      console.log("Created note:", createdNote);
+
+      // Add the new note to Zustand store
+      addNote(createdNote);
+      console.log("Note added to store");
+
+      setNewTask("");
+      setIsDialogOpen(false);
+      console.log("Modal closed");
+    } catch (err) {
+      console.error("Failed to add task:", err);
+      setError(err instanceof Error ? err.message : "Failed to add task");
+    } finally {
+      setIsAddingTask(false);
+      console.log("Request completed");
+    }
+  };
+
+  // Handle toggling task completion
+  const handleToggleTask = (noteId: number) => {
+    toggleNoteDone(noteId);
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 relative flex flex-col overflow-hidden">
@@ -53,50 +163,7 @@ export default function Dashboard() {
       {/* Cyan Header */}
       <div className="bg-[#50C2C9] h-[30vh] flex flex-col justify-end text-center">
         <Image src={profile} alt="profile" className="mx-auto" />
-        <p className="font-bold text-xl text-white p-5">
-          Welcome Jeegar goyani
-        </p>
-      </div>
-
-      {/* Greeting */}
-      <p className="text-right p-5 font-bold">Good Afternoon</p>
-
-      {/* Clock */}
-      <div className="flex flex-col items-center">
-        <div className="rounded-full relative shadow mx-auto w-48 h-48 bg-[#F0FDFD]">
-          <p className="absolute top-1 left-1/2 -translate-x-1/2 text-[#50C2C9]">
-            12
-          </p>
-          <p className="absolute right-1 top-1/2 -translate-y-1/2 text-[#50C2C9]">
-            3
-          </p>
-          <p className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[#50C2C9]">
-            6
-          </p>
-          <p className="absolute left-1 top-1/2 -translate-y-1/2 text-[#50C2C9]">
-            9
-          </p>
-
-          {/* Hands */}
-          <div
-            className="absolute w-[2px] h-16 bg-[#50C2C9] top-8 left-1/2 origin-bottom z-20"
-            style={{ transform: `rotate(${hourDeg}deg)` }}
-          />
-          <div
-            className="absolute w-[2px] h-20 bg-[#50C2C9] top-5 left-1/2 origin-bottom z-20"
-            style={{ transform: `rotate(${minuteDeg}deg)` }}
-          />
-          <div
-            className="absolute w-[1px] h-20 bg-gray-400 top-5 left-1/2 origin-bottom z-20"
-            style={{ transform: `rotate(${secondDeg}deg)` }}
-          />
-
-          {/* Center Dot */}
-          <div
-            className="rounded-full absolute shadow w-5 h-5 bg-white 
-                          top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50"
-          />
-        </div>
+        <p className="font-bold text-xl text-white p-5">Welcome {username}</p>
       </div>
 
       {/* Modal */}
@@ -110,23 +177,42 @@ export default function Dashboard() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-semibold mb-4">Add Task</h2>
+            {error && (
+              <div className="text-red-500 text-sm mb-3 p-2 bg-red-50 rounded">
+                {error}
+              </div>
+            )}
             <input
               value={newTask}
               onChange={(e) => setNewTask(e.target.value)}
               type="text"
               placeholder="Enter a Task"
               className="w-full px-6 py-4 rounded-4xl bg-white border-3 border-[#50C2C9] outline-none focus:ring-2 focus:ring-blue-400 text-black placeholder-black mb-5"
+              onKeyPress={(e) => {
+                if (e.key === "Enter") {
+                  handleAddTask();
+                }
+              }}
             />
             <div className="flex gap-5">
               <button
-                onClick={() => setIsDialogOpen(false)}
-                className="px-4 py-2 w-full bg-green-500 rounded-lg hover:bg-gray-600"
+                onClick={() => {
+                  console.log("Add task button clicked");
+                  handleAddTask();
+                }}
+                disabled={!newTask.trim() || isAddingTask}
+                className="px-4 py-2 w-full bg-green-500 rounded-lg hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                Add task
+                {isAddingTask ? "Adding..." : "Add task"}
               </button>
               <button
-                onClick={() => setIsDialogOpen(false)}
-                className="px-4 py-2 w-full bg-red-500 rounded-lg hover:bg-red-600"
+                onClick={() => {
+                  setIsDialogOpen(false);
+                  setNewTask("");
+                  setError(null);
+                }}
+                disabled={isAddingTask}
+                className="px-4 py-2 w-full bg-red-500 rounded-lg hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
@@ -135,26 +221,69 @@ export default function Dashboard() {
         </div>
       )}
 
+      <Time />
+
       {/* Task List */}
       <p className="text-left pt-5 px-5 font-bold">Task list</p>
-      <div className="bg-white shadow-xl rounded-xl h-[30vh] m-5 p-10">
+      <div className="bg-white shadow-xl rounded-xl h-[30vh] m-5 p-10 overflow-y-auto">
         <div className="flex justify-between mb-10">
           <p>Daily Task</p>
           <button
             onClick={() => {
-              console.log("hi");
               setIsDialogOpen(true);
             }}
           >
             <Image src={plus} alt="Plus" />
           </button>
         </div>
-        <div className="flex">
-          <button>
-            <div className="bg-[#50C2C9] border-2 h-4 w-4"></div>
-          </button>
-          <p>&nbsp;&nbsp;&nbsp;Learning Programming by 12PM</p>
-        </div>
+
+        {/* Error state */}
+        {error && (
+          <div className="text-red-500 text-center py-4">
+            Error loading tasks: {error}
+          </div>
+        )}
+
+        {/* Loading state */}
+        {isLoading && (
+          <div className="text-gray-500 text-center py-4">Loading tasks...</div>
+        )}
+
+        {/* No tasks state */}
+        {!isLoading && !error && userNotes.length === 0 && (
+          <div className="text-gray-500 text-center py-4">
+            No tasks yet. Add your first task!
+          </div>
+        )}
+
+        {/* Task list */}
+        {!isLoading && !error && userNotes.length > 0 && (
+          <div className="space-y-3">
+            {userNotes.map((note) => (
+              <div key={note.noteId} className="flex items-center">
+                <button
+                  onClick={() => handleToggleTask(note.noteId)}
+                  className="flex-shrink-0"
+                >
+                  <div
+                    className={`border-2 h-4 w-4 ${
+                      note.isDone
+                        ? "bg-[#50C2C9] border-[#50C2C9]"
+                        : "bg-white border-gray-400"
+                    }`}
+                  />
+                </button>
+                <p
+                  className={`ml-3 ${
+                    note.isDone ? "line-through text-gray-500" : "text-black"
+                  }`}
+                >
+                  {note.note}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -24,5 +24,5 @@ export async function POST(req: Request) {
     );
   }
 
-  return NextResponse.json({ id: user.userId, username: user.username });
+  return NextResponse.json({ userId: user.userId, username: user.username });
 }

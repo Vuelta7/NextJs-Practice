@@ -2,18 +2,19 @@
 import Circle from "../../components/bgCircle";
 import { useRouter } from "next/navigation";
 import kidSchool from "@/assets/kidSchool.png";
+import { useUserStore } from "@/lib/useUserStore";
 import { useState } from "react";
 import Image from "next/image";
 
 export default function Login() {
   const router = useRouter();
 
+  const setUsernameState = useUserStore((state) => state.setUsername);
+  const setUserIdState = useUserStore((state) => state.setUserId);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
   async function loginAccount() {
-    console.log("VALUES:", { username, password });
-
     if (!username || !password) {
       alert("Please fill in all fields.");
       return;
@@ -28,6 +29,8 @@ export default function Login() {
     const data = await res.json();
 
     if (res.ok) {
+      setUsernameState(username);
+      setUserIdState(data.userId);
       router.push("/home");
     } else {
       alert(data.error || "Something went wrong.");
