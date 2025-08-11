@@ -22,10 +22,23 @@ export default function Time() {
   const minuteDeg = minutes * 6 + seconds * 0.1;
   const hourDeg = ((hours % 12) / 12) * 360 + minutes * 0.5;
 
+  // Function to get greeting based on time
+  const getGreeting = () => {
+    if (hours >= 5 && hours < 12) {
+      return "Good Morning";
+    } else if (hours >= 12 && hours < 17) {
+      return "Good Afternoon";
+    } else if (hours >= 17 && hours < 21) {
+      return "Good Evening";
+    } else {
+      return "Good Night";
+    }
+  };
+
   return (
     <div>
-      {/* Greeting */}
-      <p className="text-right p-5 font-bold">Good Afternoon</p>
+      {/* Dynamic Greeting */}
+      <p className="text-right p-5 font-bold">{getGreeting()}</p>
 
       {/* Clock */}
       <div className="flex flex-col items-center">

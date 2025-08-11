@@ -9,6 +9,7 @@ import LogOutIcon from "../components/logOut";
 import Time from "../components/time";
 import { useUserStore } from "@/lib/useUserStore";
 import { useNoteStore } from "@/lib/useNoteStore";
+import DeleteIcon from "../components/delete";
 
 type Note = {
   noteId: number;
@@ -24,23 +25,32 @@ export default function Dashboard() {
   const userId = useUserStore((state) => state.userId);
   const { setUserId, setUsername } = useUserStore();
 
-  // Debug user data
-  console.log("Current user data:", { username, userId });
-
-  const { notes, setNotes, getNotesByUserId, addNote, toggleNoteDone } =
-    useNoteStore();
+  const {
+    notes,
+    setNotes,
+    getNotesByUserId,
+    addNote,
+    toggleNoteDone,
+    deleteNote,
+  } = useNoteStore();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newTask, setNewTask] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isAddingTask, setIsAddingTask] = useState(false);
+  const [deletingNotes, setDeletingNotes] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Fetch notes on component mount
+  // Fetch notes on component mount and after deletions
   useEffect(() => {
     const fetchNotes = async () => {
-      try {
+      // Don't show loading spinner on refresh after delete
+      if (refreshTrigger === 0) {
         setIsLoading(true);
+      }
+
+      try {
         setError(null);
 
         const response = await fetch("/api/home");
@@ -50,8 +60,6 @@ export default function Dashboard() {
         }
 
         const data = await response.json();
-
-        // Assuming the API returns an array of notes or an object with notes property
         const notesData = Array.isArray(data) ? data : data.notes;
 
         if (notesData) {
@@ -66,82 +74,145 @@ export default function Dashboard() {
     };
 
     fetchNotes();
-  }, [setNotes]);
+  }, [setNotes, refreshTrigger]); // Re-fetch when refreshTrigger changes
+
+  // Cleanup effect to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      setDeletingNotes(new Set());
+      setError(null);
+    };
+  }, []);
 
   // Get current user's notes
   const userNotes = userId ? getNotesByUserId(userId) : [];
 
-  // Handle adding new task
-  const handleAddTask = async () => {
-    console.log("handleAddTask called");
-    console.log("newTask:", newTask);
-    console.log("userId:", userId);
+  // Fixed delete handler with proper error handling and state management
+  const handleDeleteTask = async (noteId: number) => {
+    try {
+      // Add to deleting set to show loading state
+      setDeletingNotes((prev) => new Set([...prev, noteId]));
+      setError(null);
 
-    if (!newTask.trim()) {
-      console.log("No task text entered");
-      return;
+      const response = await fetch(`/api/home/${noteId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to delete note`);
+      }
+
+      if (deleteNote) {
+        deleteNote(noteId); // Assuming you have this method in your store
+      }
+
+      console.log(`Note ${noteId} deleted successfully`);
+    } catch (err) {
+      console.error("Failed to delete task:", err);
+      setError(err instanceof Error ? err.message : "Failed to delete task");
+
+      // Show error for 5 seconds then clear it
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      // Remove from deleting set
+      setDeletingNotes((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(noteId);
+        return newSet;
+      });
     }
+  };
 
-    if (!userId) {
-      console.log("No userId found");
-      setError("User not logged in");
+  // Alternative: Custom hook for delete functionality
+  const useDeleteNote = () => {
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
+
+    const deleteNote = async (noteId: number, onSuccess?: () => void) => {
+      setIsDeleting(true);
+      setDeleteError(null);
+
+      try {
+        const response = await fetch(`/api/home/${noteId}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to delete note");
+        }
+
+        onSuccess?.();
+      } catch (err) {
+        setDeleteError(err instanceof Error ? err.message : "Delete failed");
+      } finally {
+        setIsDeleting(false);
+      }
+    };
+
+    return { deleteNote, isDeleting, deleteError };
+  };
+
+  const handleAddTask = async () => {
+    if (!newTask.trim() || !userId) {
+      setError("Please enter a task and ensure you're logged in");
       return;
     }
 
     try {
       setIsAddingTask(true);
       setError(null);
-      console.log("Starting API request...");
-
-      const requestBody = {
-        note: newTask.trim(),
-        isDone: false,
-        userId: userId,
-      };
-
-      console.log("Request body:", requestBody);
 
       const response = await fetch("/api/home", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          note: newTask.trim(),
+          isDone: false,
+          userId: userId,
+        }),
       });
-
-      console.log("Response status:", response.status);
-      console.log("Response ok:", response.ok);
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("API Error:", errorData);
-        throw new Error(
-          errorData.error || `HTTP error! status: ${response.status}`
-        );
+        throw new Error(errorData.error || "Failed to add task");
       }
 
       const createdNote = await response.json();
-      console.log("Created note:", createdNote);
-
-      // Add the new note to Zustand store
       addNote(createdNote);
-      console.log("Note added to store");
-
       setNewTask("");
       setIsDialogOpen(false);
-      console.log("Modal closed");
     } catch (err) {
       console.error("Failed to add task:", err);
       setError(err instanceof Error ? err.message : "Failed to add task");
     } finally {
       setIsAddingTask(false);
-      console.log("Request completed");
     }
   };
 
-  // Handle toggling task completion
-  const handleToggleTask = (noteId: number) => {
-    toggleNoteDone(noteId);
+  const handleToggleTask = async (noteId: number) => {
+    try {
+      // Optimistically update the UI
+      toggleNoteDone(noteId);
+
+      // You might want to also sync with the backend
+      const note = userNotes.find((n) => n.noteId === noteId);
+      if (note) {
+        await fetch(`/api/home/${noteId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isDone: !note.isDone }),
+        });
+      }
+    } catch (err) {
+      // Rollback on error
+      toggleNoteDone(noteId);
+      console.error("Failed to toggle task:", err);
+    }
   };
 
   return (
@@ -150,11 +221,9 @@ export default function Dashboard() {
       <div className="absolute top-0 left-0">
         <Image className="w-50 md:w-40 md:h-40" src={circle} alt="circle" />
       </div>
-      {/* Background circle */}
+
       <button
-        onClick={() => {
-          router.push("/");
-        }}
+        onClick={() => router.push("/")}
         className="absolute top-0 right-0"
       >
         <LogOutIcon />
@@ -166,7 +235,7 @@ export default function Dashboard() {
         <p className="font-bold text-xl text-white p-5">Welcome {username}</p>
       </div>
 
-      {/* Modal */}
+      {/* Modal for adding tasks */}
       {isDialogOpen && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
@@ -188,18 +257,11 @@ export default function Dashboard() {
               type="text"
               placeholder="Enter a Task"
               className="w-full px-6 py-4 rounded-4xl bg-white border-3 border-[#50C2C9] outline-none focus:ring-2 focus:ring-blue-400 text-black placeholder-black mb-5"
-              onKeyPress={(e) => {
-                if (e.key === "Enter") {
-                  handleAddTask();
-                }
-              }}
+              onKeyPress={(e) => e.key === "Enter" && handleAddTask()}
             />
             <div className="flex gap-5">
               <button
-                onClick={() => {
-                  console.log("Add task button clicked");
-                  handleAddTask();
-                }}
+                onClick={handleAddTask}
                 disabled={!newTask.trim() || isAddingTask}
                 className="px-4 py-2 w-full bg-green-500 rounded-lg hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
@@ -225,22 +287,18 @@ export default function Dashboard() {
 
       {/* Task List */}
       <p className="text-left pt-5 px-5 font-bold">Task list</p>
-      <div className="bg-white shadow-xl rounded-xl h-[30vh] m-5 p-10 overflow-y-auto">
+      <div className="bg-white shadow-xl rounded-xl m-5 p-10 overflow-y-auto">
         <div className="flex justify-between mb-10">
           <p>Daily Task</p>
-          <button
-            onClick={() => {
-              setIsDialogOpen(true);
-            }}
-          >
+          <button onClick={() => setIsDialogOpen(true)}>
             <Image src={plus} alt="Plus" />
           </button>
         </div>
 
         {/* Error state */}
         {error && (
-          <div className="text-red-500 text-center py-4">
-            Error loading tasks: {error}
+          <div className="text-red-500 text-center py-4 bg-red-50 rounded mb-4">
+            {error}
           </div>
         )}
 
@@ -274,12 +332,25 @@ export default function Dashboard() {
                   />
                 </button>
                 <p
-                  className={`ml-3 ${
+                  className={`ml-3 flex-1 ${
                     note.isDone ? "line-through text-gray-500" : "text-black"
                   }`}
                 >
                   {note.note}
                 </p>
+                {note.isDone && (
+                  <button
+                    onClick={() => handleDeleteTask(note.noteId)}
+                    disabled={deletingNotes.has(note.noteId)}
+                    className="ml-2 p-1 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {deletingNotes.has(note.noteId) ? (
+                      <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <DeleteIcon />
+                    )}
+                  </button>
+                )}
               </div>
             ))}
           </div>
