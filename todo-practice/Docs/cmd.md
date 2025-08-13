@@ -1,19 +1,27 @@
-npx prisma init
+Initializing Prisma for DB
 
-for database>
+```bash
+npx prisma init
+```
+
+for database docker run
+
+```bash
+docker-compose up -d postgres
 docker compose up -d
+```
 
 add @unique and bcrypt
 
+To initialize the DB inside the postgres
+
+```bash
 npx prisma db push
 npx prisma generate
-docker-compose exec web npx prisma generate
+```
 
+To look inside the prisma DB
+
+```bash
 npx prisma studio
-
-docker-compose up --build
-docker-compose up
-
-docker-compose up -d postgres # only DB
-npm install
-npm run dev # run Next.js locally
+```
