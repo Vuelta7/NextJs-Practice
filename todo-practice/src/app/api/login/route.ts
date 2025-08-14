@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@/generated/prisma/index.js";
+import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
 
@@ -17,11 +18,10 @@ export async function POST(req: Request) {
     );
   }
 
-  if (user.password !== password) {
-    return NextResponse.json(
-      { error: "Invalid username or password." },
-      { status: 401 }
-    );
+  const isMatch = await bcrypt.compare(password, user.password);
+
+  if (!isMatch) {
+    return NextResponse.json({ error: "Invalid password." }, { status: 401 });
   }
 
   return NextResponse.json({ userId: user.userId, username: user.username });
