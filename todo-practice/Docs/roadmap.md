@@ -13,6 +13,7 @@
 - zustand (State Management)
 - bcrypt
 
-# Phase 1
-
-UI/UX Implementation
+```bash
+npm install zustand bcrypt
+npm install --save-dev @types/bcrypt
+```
