@@ -13,10 +13,9 @@ export default function Register() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function registerAccount() {
-    console.log("VALUES:", { username, password, confirmPassword });
-
     if (!username || !password || !confirmPassword) {
       alert("Please fill in all fields.");
       return;
@@ -27,22 +26,30 @@ export default function Register() {
       return;
     }
 
-    const res = await fetch("/api/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
+    if (loading) return;
+    setLoading(true);
 
-    const data = await res.json();
-    console.log("API Response:", data); // Add this to debug
+    try {
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
 
-    if (res.ok) {
-      setUsernameState(username);
-      // Change from data.user.id to data.user.userId
-      setUserIdState(data.user.userId); // ✅ Fix: use userId instead of id
-      router.push("/home");
-    } else {
-      alert(data.error || "Something went wrong.");
+      const data = await res.json();
+      console.log("API Response:", data);
+
+      if (res.ok) {
+        setUsernameState(username);
+        setUserIdState(data.user.userId);
+        router.push("/home");
+      } else {
+        alert(data.error || "Something went wrong.");
+      }
+    } catch (e) {
+      alert(`Network Error: ${e}`);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -92,6 +99,7 @@ export default function Register() {
       {/* Bottom buttons section */}
       <div className="px-8 pb-20 mx-auto">
         <button
+          disabled={loading}
           onClick={() => registerAccount()}
           className="w-[350px] bg-[#50C2C9] text-white rounded-lg py-4 text-[18px] font-bold shadow-sm mb-6"
         >
