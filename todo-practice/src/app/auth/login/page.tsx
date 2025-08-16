@@ -10,7 +10,6 @@ export default function Login() {
   const router = useRouter();
 
   const setUsernameState = useUserStore((state) => state.setUsername);
-  const setUserIdState = useUserStore((state) => state.setUserId);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
@@ -36,7 +35,7 @@ export default function Login() {
 
       if (res.ok) {
         setUsernameState(username);
-        setUserIdState(data.userId);
+        localStorage.setItem("token", data.token);
         router.push("/home");
       } else {
         alert(data.error || "Something went wrong.");

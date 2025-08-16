@@ -8,7 +8,6 @@ export default function Register() {
   const router = useRouter();
 
   const setUsernameState = useUserStore((state) => state.setUsername);
-  const setUserIdState = useUserStore((state) => state.setUserId);
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -41,7 +40,7 @@ export default function Register() {
 
       if (res.ok) {
         setUsernameState(username);
-        setUserIdState(data.user.userId);
+        localStorage.setItem("token", data.token);
         router.push("/home");
       } else {
         alert(data.error || "Something went wrong.");
@@ -71,7 +70,13 @@ export default function Register() {
         </div>
 
         {/* Form inputs */}
-        <div className="space-y-6 mb-10">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            registerAccount();
+          }}
+          className="space-y-6 mb-10"
+        >
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -93,7 +98,7 @@ export default function Register() {
             placeholder="Confirm password"
             className="w-full px-6 py-4 rounded-4xl bg-white outline-none focus:ring-2 focus:ring-blue-400 text-black placeholder-black"
           />
-        </div>
+        </form>
       </div>
 
       {/* Bottom buttons section */}
