@@ -3,20 +3,29 @@ import { NextResponse } from "next/server";
 
 const prisma = new PrismaClient();
 
+// DELETE note
 export async function DELETE(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
     const noteId = parseInt(params.id);
+    const userId = Number(_req.headers.get("x-user-id"));
 
     if (isNaN(noteId)) {
       return NextResponse.json({ error: "Invalid note ID" }, { status: 400 });
     }
 
-    await prisma.note.delete({
-      where: { noteId },
-    });
+    // Ensure note belongs to the logged-in user
+    const existingNote = await prisma.note.findUnique({ where: { noteId } });
+    if (!existingNote || existingNote.userId !== userId) {
+      return NextResponse.json(
+        { error: "Note not found or not yours" },
+        { status: 404 }
+      );
+    }
+
+    await prisma.note.delete({ where: { noteId } });
 
     return NextResponse.json({ message: "Note deleted successfully" });
   } catch (e) {
@@ -28,32 +37,26 @@ export async function DELETE(
   }
 }
 
+// PATCH note (partial update)
 export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
     const noteId = parseInt(params.id);
+    const userId = Number(req.headers.get("x-user-id"));
 
     if (isNaN(noteId)) {
       return NextResponse.json({ error: "Invalid note ID" }, { status: 400 });
     }
 
     const body = await req.json();
-
-    // Validate the request body
     const updateData: { isDone?: boolean; note?: string } = {};
 
-    // Only allow updating specific fields
-    if (typeof body.isDone === "boolean") {
-      updateData.isDone = body.isDone;
-    }
-
-    if (typeof body.note === "string" && body.note.trim()) {
+    if (typeof body.isDone === "boolean") updateData.isDone = body.isDone;
+    if (typeof body.note === "string" && body.note.trim())
       updateData.note = body.note.trim();
-    }
 
-    // Check if there's anything to update
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
         { error: "No valid fields to update" },
@@ -61,16 +64,14 @@ export async function PATCH(
       );
     }
 
-    // Check if note exists first
-    const existingNote = await prisma.note.findUnique({
-      where: { noteId },
-    });
-
-    if (!existingNote) {
-      return NextResponse.json({ error: "Note not found" }, { status: 404 });
+    const existingNote = await prisma.note.findUnique({ where: { noteId } });
+    if (!existingNote || existingNote.userId !== userId) {
+      return NextResponse.json(
+        { error: "Note not found or not yours" },
+        { status: 404 }
+      );
     }
 
-    // Update the note
     const updatedNote = await prisma.note.update({
       where: { noteId },
       data: updateData,
@@ -82,14 +83,6 @@ export async function PATCH(
     });
   } catch (e) {
     console.error("Update error:", e);
-
-    // Handle specific Prisma errors
-    if (e instanceof Error) {
-      if (e.message.includes("Record to update not found")) {
-        return NextResponse.json({ error: "Note not found" }, { status: 404 });
-      }
-    }
-
     return NextResponse.json(
       { error: "Failed to update note: " + e },
       { status: 500 }
@@ -97,27 +90,25 @@ export async function PATCH(
   }
 }
 
+// PUT note (full update)
 export async function PUT(
   req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
     const noteId = parseInt(params.id);
+    const userId = Number(req.headers.get("x-user-id"));
+    const body = await req.json();
 
     if (isNaN(noteId)) {
       return NextResponse.json({ error: "Invalid note ID" }, { status: 400 });
     }
-
-    const body = await req.json();
-
-    // Validate required fields for PUT (full update)
     if (typeof body.note !== "string" || !body.note.trim()) {
       return NextResponse.json(
         { error: "Note text is required" },
         { status: 400 }
       );
     }
-
     if (typeof body.isDone !== "boolean") {
       return NextResponse.json(
         { error: "isDone must be a boolean" },
@@ -125,29 +116,21 @@ export async function PUT(
       );
     }
 
-    if (typeof body.userId !== "number") {
+    // Enforce security: ignore userId in body, use token's userId
+    const existingNote = await prisma.note.findUnique({ where: { noteId } });
+    if (!existingNote || existingNote.userId !== userId) {
       return NextResponse.json(
-        { error: "userId is required" },
-        { status: 400 }
+        { error: "Note not found or not yours" },
+        { status: 404 }
       );
     }
 
-    // Check if note exists first
-    const existingNote = await prisma.note.findUnique({
-      where: { noteId },
-    });
-
-    if (!existingNote) {
-      return NextResponse.json({ error: "Note not found" }, { status: 404 });
-    }
-
-    // Full update of the note
     const updatedNote = await prisma.note.update({
       where: { noteId },
       data: {
         note: body.note.trim(),
         isDone: body.isDone,
-        userId: body.userId,
+        userId, // force ownership
       },
     });
 
@@ -157,13 +140,6 @@ export async function PUT(
     });
   } catch (e) {
     console.error("Full update error:", e);
-
-    if (e instanceof Error) {
-      if (e.message.includes("Record to update not found")) {
-        return NextResponse.json({ error: "Note not found" }, { status: 404 });
-      }
-    }
-
     return NextResponse.json(
       { error: "Failed to update note: " + e },
       { status: 500 }

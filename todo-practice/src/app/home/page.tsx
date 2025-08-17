@@ -41,10 +41,11 @@ export default function Dashboard() {
   const [deletingNotes, setDeletingNotes] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const token = useUserStore((state) => state.token);
 
   // Fetch notes on component mount and after deletions
   useEffect(() => {
-    const fetchNotes = async () => {
+    async function fetchNotes() {
       // Don't show loading spinner on refresh after delete
       if (refreshTrigger === 0) {
         setIsLoading(true);
@@ -53,7 +54,11 @@ export default function Dashboard() {
       try {
         setError(null);
 
-        const response = await fetch("/api/home");
+        const response = await fetch("/api/home", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -71,7 +76,7 @@ export default function Dashboard() {
       } finally {
         setIsLoading(false);
       }
-    };
+    }
 
     fetchNotes();
   }, [setNotes, refreshTrigger]); // Re-fetch when refreshTrigger changes
@@ -98,6 +103,7 @@ export default function Dashboard() {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -127,36 +133,6 @@ export default function Dashboard() {
     }
   };
 
-  // Alternative: Custom hook for delete functionality
-  const useDeleteNote = () => {
-    const [isDeleting, setIsDeleting] = useState(false);
-    const [deleteError, setDeleteError] = useState<string | null>(null);
-
-    const deleteNote = async (noteId: number, onSuccess?: () => void) => {
-      setIsDeleting(true);
-      setDeleteError(null);
-
-      try {
-        const response = await fetch(`/api/home/${noteId}`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to delete note");
-        }
-
-        onSuccess?.();
-      } catch (err) {
-        setDeleteError(err instanceof Error ? err.message : "Delete failed");
-      } finally {
-        setIsDeleting(false);
-      }
-    };
-
-    return { deleteNote, isDeleting, deleteError };
-  };
-
   const handleAddTask = async () => {
     if (!newTask.trim() || !userId) {
       setError("Please enter a task and ensure you're logged in");
@@ -169,7 +145,10 @@ export default function Dashboard() {
 
       const response = await fetch("/api/home", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           note: newTask.trim(),
           isDone: false,
@@ -204,7 +183,10 @@ export default function Dashboard() {
       if (note) {
         await fetch(`/api/home/${noteId}`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({ isDone: !note.isDone }),
         });
       }

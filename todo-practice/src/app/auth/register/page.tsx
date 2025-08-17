@@ -7,9 +7,9 @@ import { useState } from "react";
 export default function Register() {
   const router = useRouter();
 
-  const setUsernameState = useUserStore((state) => state.setUsername);
+  const { setToken, setUsername } = useUserStore.getState();
 
-  const [username, setUsername] = useState("");
+  const [username, setUsernameInput] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,7 +39,8 @@ export default function Register() {
       console.log("API Response:", data);
 
       if (res.ok) {
-        setUsernameState(username);
+        setToken(data.token);
+        setUsername(username);
         localStorage.setItem("token", data.token);
         router.push("/home");
       } else {
@@ -79,7 +80,7 @@ export default function Register() {
         >
           <input
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => setUsernameInput(e.target.value)}
             type="text"
             placeholder="Enter your username"
             className="w-full px-6 py-4 rounded-4xl bg-white  outline-none focus:ring-2 focus:ring-blue-400 text-black placeholder-black"

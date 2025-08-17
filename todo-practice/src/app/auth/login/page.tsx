@@ -9,8 +9,9 @@ import Image from "next/image";
 export default function Login() {
   const router = useRouter();
 
-  const setUsernameState = useUserStore((state) => state.setUsername);
-  const [username, setUsername] = useState("");
+  const { setToken, setUsername } = useUserStore.getState();
+
+  const [username, setInputUsername] = useState("");
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -34,7 +35,8 @@ export default function Login() {
       const data = await res.json();
 
       if (res.ok) {
-        setUsernameState(username);
+        setToken(data.token);
+        setUsername(username);
         localStorage.setItem("token", data.token);
         router.push("/home");
       } else {
@@ -74,7 +76,7 @@ export default function Login() {
         >
           <input
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => setInputUsername(e.target.value)}
             type="text"
             placeholder="Enter your Name"
             className="w-full px-6 py-4 rounded-4xl bg-white outline-none focus:ring-2 focus:ring-blue-400 text-black placeholder-black"
