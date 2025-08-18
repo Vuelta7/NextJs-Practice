@@ -7,7 +7,7 @@ import { useState } from "react";
 export default function Register() {
   const router = useRouter();
 
-  const { setToken, setUsername } = useUserStore.getState();
+  const { setToken, setUsername, setUserId } = useUserStore.getState();
 
   const [username, setUsernameInput] = useState("");
   const [password, setPassword] = useState("");
@@ -41,7 +41,7 @@ export default function Register() {
       if (res.ok) {
         setToken(data.token);
         setUsername(username);
-        localStorage.setItem("token", data.token);
+        setUserId(data.userId);
         router.push("/home");
       } else {
         alert(data.error || "Something went wrong.");

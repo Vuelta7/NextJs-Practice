@@ -25,7 +25,7 @@ model User {
 model Note {
   noteId  Int    @id @default(autoincrement())
   note    String
-  isDone  Boolean @default(true)
+  isDone  Boolean @default(false)
   userId  Int
 
   user    User   @relation(fields: [userId], references: [userId], name: "UserNotes") 

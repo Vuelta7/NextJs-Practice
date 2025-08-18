@@ -21,9 +21,9 @@ type Note = {
 export default function Dashboard() {
   const router = useRouter();
 
-  const username = useUserStore((state) => state.username);
+  const token = useUserStore((state) => state.token);
   const userId = useUserStore((state) => state.userId);
-  const { setUserId, setUsername } = useUserStore();
+  const username = useUserStore((state) => state.username);
 
   const {
     notes,
@@ -41,7 +41,6 @@ export default function Dashboard() {
   const [deletingNotes, setDeletingNotes] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const token = useUserStore((state) => state.token);
 
   // Fetch notes on component mount and after deletions
   useEffect(() => {
@@ -145,10 +144,6 @@ export default function Dashboard() {
 
       const response = await fetch("/api/home", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           note: newTask.trim(),
           isDone: false,

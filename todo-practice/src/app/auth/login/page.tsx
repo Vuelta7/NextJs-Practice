@@ -9,7 +9,7 @@ import Image from "next/image";
 export default function Login() {
   const router = useRouter();
 
-  const { setToken, setUsername } = useUserStore.getState();
+  const { setToken, setUsername, setUserId } = useUserStore.getState();
 
   const [username, setInputUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -36,8 +36,8 @@ export default function Login() {
 
       if (res.ok) {
         setToken(data.token);
+        setUserId(data.userId);
         setUsername(username);
-        localStorage.setItem("token", data.token);
         router.push("/home");
       } else {
         alert(data.error || "Something went wrong.");

@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       expiresIn: "24h",
     });
 
-    return NextResponse.json({ token });
+    return NextResponse.json({ userId: user.userId, token });
   } catch (err) {
     return NextResponse.json(
       { error: `User creation failed:  ${err}` },
